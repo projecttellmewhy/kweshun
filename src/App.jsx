@@ -6,6 +6,7 @@ import Toast from "./components/Toast";
 import AccountModal from "./components/AccountModal";
 import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
+import { supabaseConfigured } from "./lib/supabaseClient";
 import Home from "./components/pages/Home";
 import Dashboard from "./components/pages/Dashboard";
 import Arena from "./components/pages/Arena";
@@ -21,6 +22,19 @@ import Notifications from "./components/pages/Notifications";
 
 export default function App() {
   const vm = useAppState();
+
+  if (!supabaseConfigured) {
+    return (
+      <div data-theme="dark" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--tx)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ maxWidth: 480, background: "var(--card)", border: "1px solid var(--bd2)", borderRadius: 14, padding: 24, fontSize: 13.5, lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Supabase isn't configured</div>
+          <div style={{ color: "var(--mut)" }}>
+            Missing <code>VITE_SUPABASE_URL</code> and/or <code>VITE_SUPABASE_ANON_KEY</code>. Set them in your <code>.env</code> file locally, or in your deployment platform's environment variables, then rebuild.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!vm.authReady) {
     return (

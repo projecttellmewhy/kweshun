@@ -6,7 +6,7 @@ import { gradeQuestion } from "../lib/grade";
 import { mathNodes } from "../lib/math";
 import { nid, pick } from "../lib/id";
 import { initialState } from "../lib/initialState";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, supabaseConfigured } from "../lib/supabaseClient";
 
 const GRADE_SPEED = 480;
 
@@ -24,6 +24,7 @@ export function useAppState() {
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    if (!supabaseConfigured) { patch({ authChecked: true }); return; }
     let mounted = true;
 
     const applySession = (session, isInitial) => {
