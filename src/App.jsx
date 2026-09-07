@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import Toast from "./components/Toast";
 import AccountModal from "./components/AccountModal";
 import SignOutModal from "./components/SignOutModal";
+import AuthModal from "./components/AuthModal";
 import Home from "./components/pages/Home";
 import Dashboard from "./components/pages/Dashboard";
 import Arena from "./components/pages/Arena";
@@ -21,8 +22,16 @@ import Notifications from "./components/pages/Notifications";
 export default function App() {
   const vm = useAppState();
 
-  if (vm.landingA) return <LandingA vm={vm} />;
-  if (vm.landingB) return <LandingB vm={vm} />;
+  if (!vm.authReady) {
+    return (
+      <div data-theme="dark" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>
+        Loading…
+      </div>
+    );
+  }
+
+  if (vm.landingA) return (<><LandingA vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
+  if (vm.landingB) return (<><LandingB vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
 
   return (
     <div data-theme={vm.themeAttr} style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", color: "var(--tx)" }}>
@@ -45,6 +54,7 @@ export default function App() {
 
       <AccountModal vm={vm} />
       <SignOutModal vm={vm} />
+      <AuthModal vm={vm} />
       <Toast vm={vm} />
     </div>
   );

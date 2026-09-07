@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ICONS, PAGES, P, G, B, O, R, Y, SUBJECTS, SUBJECT_META, LEVELS, TOPICS, OPP_QUESTIONS, POOL, AVATARS,
 } from "../lib/data";
@@ -6,6 +6,7 @@ import { gradeQuestion } from "../lib/grade";
 import { mathNodes } from "../lib/math";
 import { nid, pick } from "../lib/id";
 import { initialState } from "../lib/initialState";
+import { supabase } from "../lib/supabaseClient";
 
 const GRADE_SPEED = 480;
 
@@ -22,11 +23,58 @@ export function useAppState() {
   const gradeTimer = useRef(null);
   const canvasRef = useRef(null);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const applySession = (session, isInitial) => {
+      if (!mounted) return;
+      const wasSignedOut = stateRef.current.signedOut;
+      const next = { authChecked: true, signedOut: !session };
+      if (session && (isInitial || wasSignedOut)) {
+        next.acctEmail = session.user.email;
+        next.acctName = session.user.email.split("@")[0];
+        if (!isInitial) next.page = "Home";
+      }
+      if (!session && !isInitial) next.page = "Home";
+      patch(next);
+    };
+
+    supabase.auth.getSession().then(({ data }) => applySession(data.session, true));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => applySession(session, false));
+
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, [patch]);
+
   const say = useCallback((msg) => {
     clearTimeout(toastTimer.current);
     patch({ toast: msg });
     toastTimer.current = setTimeout(() => patch({ toast: null }), 2600);
   }, [patch]);
+
+  const submitAuth = useCallback(async () => {
+    const s = stateRef.current;
+    const email = s.authEmail.trim();
+    const password = s.authPassword;
+    if (!email || !password) { patch({ authError: "Enter an email and password" }); return; }
+    patch({ authLoading: true, authError: "" });
+
+    if (s.authMode === "signup") {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) { patch({ authLoading: false, authError: error.message }); return; }
+      if (!data.session) {
+        patch({ authLoading: false, authModalOpen: false, authEmail: "", authPassword: "" });
+        say("Check " + email + " for a confirmation link, then log in");
+        return;
+      }
+      patch({ authLoading: false, authModalOpen: false, authEmail: "", authPassword: "" });
+      say("Welcome to dripit — write your first question");
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { patch({ authLoading: false, authError: error.message }); return; }
+    patch({ authLoading: false, authModalOpen: false, authEmail: "", authPassword: "" });
+  }, [patch, say]);
 
   const go = useCallback((page, msg) => {
     patch({ page, qMenu: null });
@@ -378,9 +426,25 @@ export function useAppState() {
           title: "Remove the top-left and bottom-right squares of an 8×8 chessboard. Can the remaining 62 squares be tiled by exactly 31 dominoes?",
           blurb: "Parity invariants, bipartite colouring, and why the answer is forced before you try." },
       ],
-      logIn: () => patch({ signedOut: false, page: "Home" }),
-      signUp: () => { patch({ signedOut: false, page: "Home" }); say("Welcome to dripit — write your first question"); },
+      authReady: s.authChecked,
+      logIn: () => patch({ authModalOpen: true, authMode: "login", authError: "" }),
+      signUp: () => patch({ authModalOpen: true, authMode: "signup", authError: "" }),
       previewLeaderboard: () => patch({ signedOut: false, page: "Leaderboard" }),
+      authModalOpen: s.authModalOpen,
+      authMode: s.authMode,
+      authTitle: s.authMode === "signup" ? "Create your account" : "Welcome back",
+      authSubtitle: s.authMode === "signup" ? "Publish under your name and start battling" : "Log in to keep writing",
+      authEmail: s.authEmail,
+      onAuthEmail: (e) => patch({ authEmail: e.target.value, authError: "" }),
+      authPassword: s.authPassword,
+      onAuthPassword: (e) => patch({ authPassword: e.target.value, authError: "" }),
+      authError: s.authError,
+      authLoading: s.authLoading,
+      authSubmitLabel: s.authLoading ? "Please wait…" : (s.authMode === "signup" ? "Create account" : "Log in"),
+      submitAuth,
+      closeAuthModal: () => patch({ authModalOpen: false, authError: "", authPassword: "" }),
+      switchAuthMode: () => patch({ authMode: s.authMode === "signup" ? "login" : "signup", authError: "" }),
+      switchAuthLabel: s.authMode === "signup" ? "Already have an account? Log in" : "New here? Create an account",
       heroBoard: [
         { rank: 1, name: "Abram Mango", deck: "76 questions · 91% kept", score: 615, avatar: "🧑‍🎤", tint: P },
         { rank: 2, name: "Kianna Torff", deck: "88 questions · 94% kept", score: 540, avatar: "👸", tint: Y },
@@ -763,14 +827,14 @@ export function useAppState() {
       signOut: () => patch({ accountOpen: false, signOutOpen: true }),
       signOutLine: "Your " + s.turns.length + " open battles stay unjudged for 24 hours.",
       cancelSignOut: () => patch({ signOutOpen: false }),
-      confirmSignOut: () => patch({ signOutOpen: false, signedOut: true, page: "Home" }),
+      confirmSignOut: () => { patch({ signOutOpen: false }); supabase.auth.signOut(); },
 
       hasToast: !!s.toast,
       toast: s.toast,
       accent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch]);
+  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch, submitAuth]);
 
   return vm;
 }

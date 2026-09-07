@@ -4,6 +4,7 @@ export const initialState = {
   page: "Home", qTab: "All", nTab: "All", lbTab: "Monthly",
   signedOut: true, landing: "b", collapsed: false, theme: "Dark", toast: null,
   qSearch: "", fSearch: "", qMenu: null,
+  authChecked: false, authModalOpen: false, authMode: "login", authEmail: "", authPassword: "", authError: "", authLoading: false,
   myScore: 540, streak: 7, weekGain: 38,
   acctName: "Kianna Torff", acctEmail: "kianna.t@dripit.app", myAvatar: "👸", myTint: Y,
   avatarPickerOpen: false, accountOpen: false, signOutOpen: false,
