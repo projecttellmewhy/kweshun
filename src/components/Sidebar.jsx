@@ -11,7 +11,7 @@ export default function Sidebar({ vm }) {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         {vm.expanded && (
-          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--acc)" }}>dripit</div>
+          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--acc)" }}>Kweshun</div>
         )}
         <Hoverable
           onClick={vm.toggleRail}

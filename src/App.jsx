@@ -1,6 +1,5 @@
 import { useAppState } from "./state/useAppState";
-import LandingA from "./components/LandingA";
-import LandingB from "./components/LandingB";
+import Landing from "./components/Landing";
 import Sidebar from "./components/Sidebar";
 import Toast from "./components/Toast";
 import AccountModal from "./components/AccountModal";
@@ -44,8 +43,7 @@ export default function App() {
     );
   }
 
-  if (vm.landingA) return (<><LandingA vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
-  if (vm.landingB) return (<><LandingB vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
+  if (vm.loggedOut) return (<><Landing vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
 
   return (
     <div data-theme={vm.themeAttr} style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", color: "var(--tx)" }}>

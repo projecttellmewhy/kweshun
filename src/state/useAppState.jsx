@@ -68,7 +68,7 @@ export function useAppState() {
         return;
       }
       patch({ authLoading: false, authModalOpen: false, authEmail: "", authPassword: "" });
-      say("Welcome to dripit — write your first question");
+      say("Welcome to Kweshun — write your first question");
       return;
     }
 
@@ -398,10 +398,6 @@ export function useAppState() {
       // landing
       loggedOut: s.signedOut,
       loggedIn: !s.signedOut,
-      landingA: s.signedOut && s.landing === "a",
-      landingB: s.signedOut && s.landing !== "a",
-      toLandingA: () => patch({ landing: "a" }),
-      toLandingB: () => patch({ landing: "b" }),
       landingSteps: [
         { step: "STEP 01", title: "Ask what you wonder", icon: "M9 9a3 3 0 116 0c0 2-3 2.2-3 4.5M12 17.5h.01", body: "Write the question you got stuck on in class — with equations and diagrams if it needs them. It publishes under your name." },
         { step: "STEP 02", title: "The library keeps it", icon: "M4.5 5.5h6v14h-6zM13.5 5.5h6v14h-6z", body: "Every verified question is indexed in the open commons for any learner, classroom, or researcher to explore." },
@@ -451,24 +447,6 @@ export function useAppState() {
         { rank: 2, name: "Kianna Torff", deck: "88 questions · 94% kept", score: 540, avatar: "👸", tint: Y },
         { rank: 3, name: "Alfonso Lubin", deck: "61 questions · 89% kept", score: 490, avatar: "🧑‍🌾", tint: G },
         { rank: 4, name: "Maren Gouse", deck: "58 questions · 87% kept", score: 385, avatar: "👩", tint: O },
-      ],
-      steps: [
-        { title: "Ask what you wonder", body: "Write the question you got stuck on in class — with equations and diagrams if it needs them. It publishes under your name.", tint: P, icon: "M9 9a3 3 0 116 0c0 2-3 2.5-3 4.5M12 18.5v.01" },
-        { title: "The library keeps it", body: "Every published question is open to any student anywhere — searchable, answerable, and improvable by peers.", tint: G, icon: "M4.5 5.5h6v14h-6zM13.5 5.5h6v14h-6zM7.5 9.5h0M16.5 9.5h0" },
-        { title: "Battle on originality", body: "Same topic, two writers, one grader. Uniqueness, creativity, clarity, depth, relevance — the better question wins the round.", tint: B, icon: "M4 4l9 9M20 4l-9 9M13 13l2.5 2.5M13 13l-2.5 2.5M14.5 15.5l2 2 2-2-2-2M9.5 15.5l-2 2-2-2 2-2" },
-      ],
-      publicQuestions: [
-        { text: "If entropy always increases, how does a cell build order without breaking the second law?", author: "Kianna Torff", meta: "Auckland · answered 1,204 times", topic: "Physics", avatar: "👸", tint: Y },
-        { text: "Why did the Bretton Woods system need a single anchor currency at all?", author: "Abram Mango", meta: "Lagos · answered 986 times", topic: "Economics", avatar: "🧑‍🎤", tint: P },
-        { text: "Can a proof be true but unprovable inside the system that states it?", author: "Alfonso Lubin", meta: "Lima · answered 744 times", topic: "Maths AA", avatar: "🧑‍🌾", tint: G },
-        { text: "Who decides what counts as a primary source when the archive was written by the winners?", author: "Maren Gouse", meta: "Manchester · answered 612 times", topic: "History", avatar: "👩", tint: O },
-      ],
-      publicDecks: [
-        { name: "Physics", meta: "9,412 questions", icon: "🧭" },
-        { name: "History", meta: "7,308 questions", icon: "🏛️" },
-        { name: "Maths AA", meta: "6,277 questions", icon: "📐" },
-        { name: "Economics", meta: "4,190 questions", icon: "📊" },
-        { name: "Biology", meta: "3,144 questions", icon: "🧬" },
       ],
 
       // sidebar

@@ -1,6 +1,6 @@
 import Hoverable from "./Hoverable";
 
-export default function LandingB({ vm }) {
+export default function Landing({ vm }) {
   return (
     <div data-theme="dark" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--tx)", display: "flex", flexDirection: "column", fontFamily: "'Work Sans',Helvetica,sans-serif" }}>
       <header style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid var(--bd)", background: "rgba(13,20,32,.9)", backdropFilter: "blur(12px)" }}>
@@ -182,7 +182,6 @@ export default function LandingB({ vm }) {
           </div>
         </div>
       </footer>
-      <div onClick={vm.toLandingA} style={{ position: "fixed", left: 20, bottom: 20, zIndex: 60, fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: "var(--tx2)", background: "var(--card)", border: "1px solid var(--bd2)", borderRadius: 999, padding: "9px 15px", cursor: "pointer" }}>Landing B · switch to dripit</div>
     </div>
   );
 }
