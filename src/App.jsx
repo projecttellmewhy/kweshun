@@ -5,6 +5,7 @@ import Toast from "./components/Toast";
 import AccountModal from "./components/AccountModal";
 import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
+import ResetPasswordModal from "./components/ResetPasswordModal";
 import { supabaseConfigured } from "./lib/supabaseClient";
 import Home from "./components/pages/Home";
 import Dashboard from "./components/pages/Dashboard";
@@ -43,7 +44,7 @@ export default function App() {
     );
   }
 
-  if (vm.loggedOut) return (<><Landing vm={vm} /><AuthModal vm={vm} /><Toast vm={vm} /></>);
+  if (vm.loggedOut) return (<><Landing vm={vm} /><AuthModal vm={vm} /><ResetPasswordModal vm={vm} /><Toast vm={vm} /></>);
 
   return (
     <div data-theme={vm.themeAttr} style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", color: "var(--tx)" }}>
@@ -67,6 +68,7 @@ export default function App() {
       <AccountModal vm={vm} />
       <SignOutModal vm={vm} />
       <AuthModal vm={vm} />
+      <ResetPasswordModal vm={vm} />
       <Toast vm={vm} />
     </div>
   );

@@ -41,7 +41,13 @@ export function useAppState() {
     };
 
     supabase.auth.getSession().then(({ data }) => applySession(data.session, true));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => applySession(session, false));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        patch({ resetModalOpen: true, authModalOpen: false, resetError: "", newPassword: "" });
+        return;
+      }
+      applySession(session, false);
+    });
 
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, [patch]);
@@ -75,6 +81,33 @@ export function useAppState() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { patch({ authLoading: false, authError: error.message }); return; }
     patch({ authLoading: false, authModalOpen: false, authEmail: "", authPassword: "" });
+  }, [patch, say]);
+
+  const requestPasswordReset = useCallback(async () => {
+    const s = stateRef.current;
+    const email = s.authEmail.trim();
+    if (!email) { patch({ authError: "Enter your email above first" }); return; }
+    patch({ authLoading: true, authError: "" });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if (error) { patch({ authLoading: false, authError: error.message }); return; }
+    patch({ authLoading: false, authModalOpen: false });
+    say("Check " + email + " for a password reset link");
+  }, [patch, say]);
+
+  const submitNewPassword = useCallback(async () => {
+    const s = stateRef.current;
+    const pw = s.newPassword;
+    if (!pw || pw.length < 6) { patch({ resetError: "Password must be at least 6 characters" }); return; }
+    patch({ resetLoading: true, resetError: "" });
+    const { data, error } = await supabase.auth.updateUser({ password: pw });
+    if (error) { patch({ resetLoading: false, resetError: error.message }); return; }
+    patch({
+      resetLoading: false, resetModalOpen: false, newPassword: "",
+      signedOut: false, page: "Home",
+      acctEmail: data.user?.email || s.acctEmail,
+      acctName: data.user?.email ? data.user.email.split("@")[0] : s.acctName,
+    });
+    say("Password updated — you're logged in");
   }, [patch, say]);
 
   const go = useCallback((page, msg) => {
@@ -442,6 +475,16 @@ export function useAppState() {
       closeAuthModal: () => patch({ authModalOpen: false, authError: "", authPassword: "" }),
       switchAuthMode: () => patch({ authMode: s.authMode === "signup" ? "login" : "signup", authError: "" }),
       switchAuthLabel: s.authMode === "signup" ? "Already have an account? Log in" : "New here? Create an account",
+      showForgotPassword: s.authMode === "login",
+      requestPasswordReset,
+      resetModalOpen: s.resetModalOpen,
+      newPassword: s.newPassword,
+      onNewPassword: (e) => patch({ newPassword: e.target.value, resetError: "" }),
+      resetError: s.resetError,
+      resetLoading: s.resetLoading,
+      resetSubmitLabel: s.resetLoading ? "Please wait…" : "Set new password",
+      submitNewPassword,
+      closeResetModal: () => patch({ resetModalOpen: false, newPassword: "", resetError: "" }),
       heroBoard: [
         { rank: 1, name: "Abram Mango", deck: "76 questions · 91% kept", score: 615, avatar: "🧑‍🎤", tint: P },
         { rank: 2, name: "Kianna Torff", deck: "88 questions · 94% kept", score: 540, avatar: "👸", tint: Y },
@@ -813,7 +856,7 @@ export function useAppState() {
       accent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch, submitAuth]);
+  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch, submitAuth, requestPasswordReset, submitNewPassword]);
 
   return vm;
 }

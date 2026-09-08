@@ -37,6 +37,12 @@ export default function AuthModal({ vm }) {
           </div>
         </div>
 
+        {vm.showForgotPassword && (
+          <Hoverable as="div" onClick={vm.authLoading ? undefined : vm.requestPasswordReset} style={{ alignSelf: "flex-end", fontSize: 12, color: "var(--tx2)", cursor: vm.authLoading ? "default" : "pointer", marginTop: -6 }} hoverStyle={{ color: "var(--acc)" }}>
+            Forgot password?
+          </Hoverable>
+        )}
+
         {vm.authError && (
           <div style={{ fontSize: 12.5, color: "var(--red)", background: "var(--redSoft)", border: "1px solid var(--redBd)", borderRadius: 10, padding: "10px 13px" }}>{vm.authError}</div>
         )}

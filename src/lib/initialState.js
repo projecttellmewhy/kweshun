@@ -5,6 +5,7 @@ export const initialState = {
   signedOut: true, collapsed: false, theme: "Dark", toast: null,
   qSearch: "", fSearch: "", qMenu: null,
   authChecked: false, authModalOpen: false, authMode: "login", authEmail: "", authPassword: "", authError: "", authLoading: false,
+  resetModalOpen: false, newPassword: "", resetError: "", resetLoading: false,
   myScore: 540, streak: 7, weekGain: 38,
   acctName: "Kianna Torff", acctEmail: "kianna.t@kweshun.app", myAvatar: "👸", myTint: Y,
   avatarPickerOpen: false, accountOpen: false, signOutOpen: false,
