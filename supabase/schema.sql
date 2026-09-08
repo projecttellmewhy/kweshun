@@ -221,3 +221,22 @@ drop policy if exists "participants can update own battle" on public.battles;
 create policy "participants can update own battle"
   on public.battles for update
   using (auth.uid() = challenger_id or auth.uid() = opponent_id);
+
+-- ---------------------------------------------------------------------------
+-- Grants: RLS policies above control which ROWS a role can touch, but the
+-- role still needs a baseline grant to touch the TABLE at all. Supabase's
+-- Table Editor does this automatically; running raw SQL does not.
+-- ---------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+
+grant select on public.profiles to anon, authenticated;
+grant insert, update on public.profiles to authenticated;
+
+grant select on public.questions to anon, authenticated;
+grant insert, update, delete on public.questions to authenticated;
+
+grant select, insert, update, delete on public.friendships to authenticated;
+
+grant select, insert, update, delete on public.notifications to authenticated;
+
+grant select, insert, update on public.battles to authenticated;

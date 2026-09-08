@@ -17,6 +17,25 @@ export default function Friends({ vm }) {
         </div>
       </div>
 
+      <div style={{ background: "var(--card)", border: "1px solid var(--bd)", borderRadius: 18, padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Add friends</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--inset)", border: "1px solid var(--bd)", borderRadius: 999, padding: "10px 16px" }}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--faint)" strokeWidth="1.9" strokeLinecap="round"><path d="M10.5 4.5a6 6 0 100 12 6 6 0 000-12M19 19l-4.2-4.2" /></svg>
+          <input value={vm.addQuery} onChange={vm.onAddQuery} placeholder="Search writers by name to add" style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--tx)", fontSize: 12.5 }} />
+        </div>
+        {vm.addResults.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {vm.addResults.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", background: "var(--card2)", border: "1px solid var(--bd)", borderRadius: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: p.tint }}>{p.avatar}</div>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700 }}>{p.name}</div>
+                <Hoverable onClick={p.send} style={{ fontSize: 12, fontWeight: 700, color: "var(--accInk)", background: "var(--accBtn)", borderRadius: 999, padding: "7px 14px", cursor: "pointer" }} hoverStyle={{ background: "var(--accBtnH)" }}>Send request</Hoverable>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {vm.hasRequests && (
         <div style={{ background: "var(--card)", border: "1px solid var(--bd)", borderRadius: 18, padding: 22, display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Requests</div>

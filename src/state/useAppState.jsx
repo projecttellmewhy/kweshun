@@ -10,6 +10,24 @@ import { supabase, supabaseConfigured } from "../lib/supabaseClient";
 
 const GRADE_SPEED = 480;
 
+const mapQuestionRow = (row) => ({
+  id: row.id,
+  text: row.text,
+  deck: row.subject,
+  level: row.level,
+  status: row.status,
+  eq: row.equation || "",
+  img: row.image_url || null,
+  plays: String(row.plays_count),
+  acc: row.plays_count ? Math.round((100 * row.correct_count) / row.plays_count) + "%" : "—",
+});
+
+const mapFriendRow = (row, meId, meta) => {
+  const mine = row.requester_id === meId;
+  const other = mine ? row.addressee : row.requester;
+  return { id: row.id, otherId: other.id, name: other.display_name, meta, score: String(other.score), avatar: other.avatar_emoji, tint: other.avatar_tint };
+};
+
 export function useAppState() {
   const [state, setState] = useState(initialState);
   const stateRef = useRef(state);
@@ -34,9 +52,16 @@ export function useAppState() {
       if (session && (isInitial || wasSignedOut)) {
         next.acctEmail = session.user.email;
         next.acctName = session.user.email.split("@")[0];
+        next.acctId = session.user.id;
         if (!isInitial) next.page = "Home";
       }
-      if (!session && !isInitial) next.page = "Home";
+      if (!session && !isInitial) {
+        next.page = "Home";
+        next.acctId = null;
+        next.questions = [];
+        next.friends = [];
+        next.requests = [];
+      }
       patch(next);
     };
 
@@ -51,6 +76,34 @@ export function useAppState() {
 
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, [patch]);
+
+  const fetchQuestions = useCallback(async (userId) => {
+    const { data, error } = await supabase
+      .from("questions")
+      .select("*")
+      .eq("author_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) { console.error(error); return; }
+    patch({ questions: data.map(mapQuestionRow) });
+  }, [patch]);
+
+  const fetchFriends = useCallback(async (userId) => {
+    const { data, error } = await supabase
+      .from("friendships")
+      .select("*, requester:profiles!friendships_requester_id_fkey(*), addressee:profiles!friendships_addressee_id_fkey(*)")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+    if (error) { console.error(error); return; }
+    patch({
+      friends: data.filter((r) => r.status === "accepted").map((r) => mapFriendRow(r, userId, "Friend")),
+      requests: data.filter((r) => r.status === "pending" && r.addressee_id === userId).map((r) => mapFriendRow(r, userId, "Sent you a friend request")),
+    });
+  }, [patch]);
+
+  useEffect(() => {
+    if (!supabaseConfigured || !state.authChecked || state.signedOut || !state.acctId) return;
+    fetchQuestions(state.acctId);
+    fetchFriends(state.acctId);
+  }, [state.authChecked, state.signedOut, state.acctId, fetchQuestions, fetchFriends]);
 
   const say = useCallback((msg) => {
     clearTimeout(toastTimer.current);
@@ -164,43 +217,121 @@ export function useAppState() {
     }, GRADE_SPEED);
   }, [patch]);
 
-  const submitCompose = useCallback(() => {
+  const insertQuestion = useCallback(async ({ text, subject, level, status, equation, imageUrl }) => {
+    const s = stateRef.current;
+    if (!supabaseConfigured) return { id: nid(), text, deck: subject, level, status, eq: equation || "", img: imageUrl || null, plays: "0", acc: "—" };
+    if (!s.acctId) { say("You're not signed in — log in to publish"); return null; }
+    const { data, error } = await supabase
+      .from("questions")
+      .insert({ author_id: s.acctId, text, subject, level: level || null, status, equation: equation || null, image_url: imageUrl || null })
+      .select()
+      .single();
+    if (error) { console.error(error); say("Could not save question"); return null; }
+    return mapQuestionRow(data);
+  }, [say]);
+
+  const deleteQuestion = useCallback((id) => {
+    if (!supabaseConfigured) return;
+    supabase.from("questions").delete().eq("id", id).then(({ error }) => { if (error) console.error(error); });
+  }, []);
+
+  const acceptFriendRequest = useCallback(async (r) => {
+    patch((st) => ({
+      requests: st.requests.filter((x) => x.id !== r.id),
+      friends: [...st.friends, { ...r, meta: "Friend" }],
+    }));
+    say(r.name + " added to your friends");
+    if (!supabaseConfigured) return;
+    const { error } = await supabase.from("friendships").update({ status: "accepted" }).eq("id", r.id);
+    if (error) console.error(error);
+  }, [patch, say]);
+
+  const declineFriendRequest = useCallback(async (r) => {
+    patch((st) => ({ requests: st.requests.filter((x) => x.id !== r.id) }));
+    say("Request declined");
+    if (!supabaseConfigured) return;
+    const { error } = await supabase.from("friendships").delete().eq("id", r.id);
+    if (error) console.error(error);
+  }, [patch, say]);
+
+  const sendFriendRequest = useCallback(async (target) => {
+    const s = stateRef.current;
+    if (!supabaseConfigured) return;
+    if (!s.acctId) { say("You're not signed in — log in to add friends"); return; }
+    const { error } = await supabase.from("friendships").insert({ requester_id: s.acctId, addressee_id: target.id, status: "pending" });
+    if (error) {
+      say(error.code === "23505" ? "Already connected with " + target.display_name : "Could not send request");
+      return;
+    }
+    patch((st) => ({ addResults: st.addResults.filter((p) => p.id !== target.id) }));
+    say("Friend request sent to " + target.display_name);
+  }, [patch, say]);
+
+  const searchAddFriends = useCallback(async (query) => {
+    const s = stateRef.current;
+    if (!supabaseConfigured || !s.acctId) return;
+    const q = query.trim();
+    if (!q) { patch({ addResults: [] }); return; }
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .ilike("display_name", `%${q}%`)
+      .neq("id", s.acctId)
+      .limit(8);
+    if (error) { console.error(error); return; }
+    if (stateRef.current.addQuery !== query) return;
+    patch({ addResults: data });
+  }, [patch]);
+
+  const onAddQuery = useCallback((e) => {
+    const v = e.target.value;
+    patch({ addQuery: v });
+    searchAddFriends(v);
+  }, [patch, searchAddFriends]);
+
+  const submitCompose = useCallback(async () => {
     const s = stateRef.current;
     if (!s.cmpText.trim()) { say("Write your question first"); return; }
     if (s.cmpMode === "library") {
-      patch({
-        questions: [{
-          id: nid(), text: s.cmpText.trim(), deck: s.cmpSubject, plays: "0", acc: "—", status: "Pending",
-          eq: s.cmpEq || null, img: s.imgUrl || s.sketchUrl || null,
-        }, ...s.questions],
-        page: "My Questions", qTab: "All", qSearch: "", cmpMode: null,
+      const row = await insertQuestion({
+        text: s.cmpText.trim(), subject: s.cmpSubject, level: s.cmpLevel, status: "Pending",
+        equation: s.cmpEq, imageUrl: s.imgUrl || s.sketchUrl,
       });
+      if (!row) return;
+      patch((st) => ({
+        questions: [row, ...st.questions],
+        page: "My Questions", qTab: "All", qSearch: "", cmpMode: null,
+      }));
       say("Published to the library — pending review");
       return;
     }
     const g = gradeQuestion(s.cmpText, !!s.cmpEq.trim(), !!(s.imgUrl || s.sketchUrl));
     patch({ battle: { ...s.battle, phase: "grading", step: 0, dims: g.dims, total: g.total } });
     tick(0);
-  }, [patch, say, tick]);
+  }, [patch, say, tick, insertQuestion]);
 
-  const finishBattle = useCallback(() => {
+  const finishBattle = useCallback(async () => {
     const s = stateRef.current, b = s.battle;
     if (!b) return;
     const won = b.total >= b.theirScore;
     const pts = won ? 25 + Math.round((b.total - b.theirScore) / 4) : 8;
-    patch({
-      turns: s.turns.filter((t) => t.id !== b.id),
+    const row = await insertQuestion({
+      text: s.cmpText.trim(), subject: b.subject, level: b.level, status: "Live",
+      equation: s.cmpEq, imageUrl: s.imgUrl || s.sketchUrl,
+    });
+    patch((st) => ({
+      turns: st.turns.filter((t) => t.id !== b.id),
       history: [{
         id: nid(), result: won ? "W" : "L", name: b.name, deck: b.topic,
         score: b.total + "–" + b.theirScore, when: "now", avatar: b.avatar, tint: b.tint,
-      }, ...s.history],
-      questions: [{ id: nid(), text: s.cmpText.trim(), deck: b.subject, plays: "0", acc: "—", status: "Live" }, ...s.questions],
-      myScore: s.myScore + pts,
-      weekGain: s.weekGain + pts,
+      }, ...st.history],
+      questions: row ? [row, ...st.questions] : st.questions,
+      myScore: st.myScore + pts,
+      weekGain: st.weekGain + pts,
       battle: null, cmpMode: null, page: "Battles",
-    });
+    }));
     say((won ? "Battle won — +" : "Battle lost — +") + pts + " points, question added to the library");
-  }, [patch, say]);
+  }, [patch, say, insertQuestion]);
 
   const sketchRef = useCallback((el) => {
     if (!el || el.__wired) return;
@@ -344,13 +475,21 @@ export function useAppState() {
           qColor: g.total >= 78 ? "var(--acc)" : g.total >= 62 ? "var(--amb)" : "var(--red)",
           menuOpen: s.qMenu === q.id,
           toggleMenu: () => patch({ qMenu: s.qMenu === q.id ? null : q.id }),
-          edit: () => resetComposer({
-            page: "Compose", cmpMode: "library", battle: null, cmpText: q.text,
-            cmpSubject: SUBJECTS.includes(q.deck) ? q.deck : "Physics", cmpEq: q.eq || "",
-            eqOpen: !!q.eq, questions: s.questions.filter((x) => x.id !== q.id),
-          }),
-          duplicate: () => { patch({ qMenu: null, questions: [{ ...q, id: nid(), status: "Draft", plays: "0", acc: "—" }, ...s.questions] }); say("Duplicated as a draft"); },
-          remove: () => { patch({ qMenu: null, questions: s.questions.filter((x) => x.id !== q.id) }); say("Question deleted"); },
+          edit: () => {
+            deleteQuestion(q.id);
+            resetComposer({
+              page: "Compose", cmpMode: "library", battle: null, cmpText: q.text,
+              cmpSubject: SUBJECTS.includes(q.deck) ? q.deck : "Physics",
+              cmpLevel: LEVELS.includes(q.level) ? q.level : "HL", cmpEq: q.eq || "",
+              eqOpen: !!q.eq, questions: s.questions.filter((x) => x.id !== q.id),
+            });
+          },
+          duplicate: () => {
+            patch({ qMenu: null });
+            insertQuestion({ text: q.text, subject: q.deck, level: q.level, status: "Draft", equation: q.eq, imageUrl: q.img })
+              .then((row) => { if (row) { patch((st) => ({ questions: [row, ...st.questions] })); say("Duplicated as a draft"); } });
+          },
+          remove: () => { patch({ qMenu: null, questions: s.questions.filter((x) => x.id !== q.id) }); deleteQuestion(q.id); say("Question deleted"); },
         };
       });
     const overall = questions.length
@@ -790,16 +929,16 @@ export function useAppState() {
       fSearch: s.fSearch,
       onFSearch: (e) => patch({ fSearch: e.target.value }),
       copyInvite: () => say("Invite link copied to clipboard"),
+      addQuery: s.addQuery,
+      onAddQuery,
+      addResults: (s.addResults || []).map((p) => ({
+        id: p.id, name: p.display_name, avatar: p.avatar_emoji, tint: p.avatar_tint, score: String(p.score),
+        send: () => sendFriendRequest(p),
+      })),
       requests: s.requests.map((r) => ({
         ...r,
-        accept: () => {
-          patch({
-            requests: s.requests.filter((x) => x.id !== r.id),
-            friends: [...s.friends, { id: nid(), name: r.name, meta: "Just added", score: r.score, avatar: r.avatar, tint: r.tint }],
-          });
-          say(r.name + " added to your friends");
-        },
-        decline: () => { patch({ requests: s.requests.filter((x) => x.id !== r.id) }); say("Request declined"); },
+        accept: () => acceptFriendRequest(r),
+        decline: () => declineFriendRequest(r),
       })),
 
       // leaderboard
@@ -856,7 +995,7 @@ export function useAppState() {
       accent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch, submitAuth, requestPasswordReset, submitNewPassword]);
+  }, [state, patch, go, say, resetComposer, openLibraryCompose, openBattleCompose, newBattle, submitCompose, finishBattle, sketchRef, clearSketch, submitAuth, requestPasswordReset, submitNewPassword, insertQuestion, deleteQuestion, acceptFriendRequest, declineFriendRequest, sendFriendRequest, onAddQuery]);
 
   return vm;
 }
